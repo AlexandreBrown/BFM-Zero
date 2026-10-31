@@ -26,7 +26,7 @@ WANDB_MODE = "online"
 WANDB_BASE_URL = "https://api.forge.coreweave.com"
 
 [tool.cluv.sbatch_args]
-time = "02:00:00"
+time = "2-00:00:00"
 mem = "128G"
 cpus-per-task = 8
 ntasks = 1

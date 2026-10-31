@@ -69,7 +69,7 @@ Do not move that directory independently of the repository.
    ```
 
    Review `cluster/pyproject.toml`. Default: Mila, one L40S, 128 GB host RAM,
-   8 CPUs, 2 hours, online W&B. Long runs override walltime explicitly. Account names for Alliance are copied from
+   8 CPUs, 2 days, online W&B. Short diagnostic runs override walltime explicitly. Account names for Alliance are copied from
    SceneGMT and need to match your current allocations. Change them in this one
    file or override resource flags on the CLI. A local 7.9 GB SIF was built and
    passed all 44 CPU tests; see [validation](VALIDATION.md). The modern derivative
