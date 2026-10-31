@@ -1,0 +1,31 @@
+{
+  "online_parallel_envs": 32,
+  "num_env_steps": 4096,
+  "num_seed_steps": 512,
+  "update_agent_every": 32,
+  "num_agent_updates": 1,
+  "log_every_updates": 512,
+  "checkpoint_every_steps": 4096,
+  "eval_every_steps": 4096,
+  "buffer_size": 8192,
+  "buffer_device": "cpu",
+  "prioritization": false,
+  "evaluations": [],
+  "agent": {
+    "compile": false,
+    "model": {
+      "inference_batch_size": 4096,
+      "archi": {
+        "f": {"hidden_dim": 256, "hidden_layers": 2},
+        "actor": {"hidden_dim": 256, "hidden_layers": 2},
+        "critic": {"hidden_dim": 256, "hidden_layers": 2},
+        "aux_critic": {"hidden_dim": 256, "hidden_layers": 2},
+        "discriminator": {"hidden_dim": 256, "hidden_layers": 2}
+      }
+    },
+    "train": {
+      "batch_size": 64,
+      "rollout_expert_trajectories_length": 32
+    }
+  }
+}

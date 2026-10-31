@@ -1,0 +1,49 @@
+Bootstrap: docker
+From: nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+# Only manifests enter the image. Source, data and outputs are mounted at runtime.
+%files
+    pyproject.toml /opt/bfm/pyproject.toml
+    uv.lock /opt/bfm/uv.lock
+
+%post
+    set -eu
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends python3.10 python3.10-venv python3-pip \
+        git ca-certificates build-essential ffmpeg libgl1 libegl1 libglib2.0-0 \
+        libsm6 libxext6 libxrender1 libgomp1 libvulkan1 libxkbcommon0 libxi6 \
+        libxrandr2 libxcursor1 libxinerama1 libxt6 libglu1-mesa libnss3 libasound2
+    python3.10 -m pip install --no-cache-dir uv==0.13.6
+    cd /opt/bfm
+    # Frozen uses the supplied lock exactly; does not modify the checkout's lock.
+    UV_CACHE_DIR=/tmp/bfm-uv uv sync --frozen --no-dev --no-install-project --python /usr/bin/python3.10
+    mkdir -p /workspace/bfm-zero /home/bfm
+    uv pip freeze --python /opt/bfm/.venv/bin/python > /opt/bfm/installed-packages.txt
+
+%environment
+    export PATH=/opt/bfm/.venv/bin:$PATH
+    export PYTHONPATH=/workspace/bfm-zero
+    export MPLCONFIGDIR=/tmp/matplotlib
+    export MUJOCO_GL=egl
+    export OMNI_KIT_ACCEPT_EULA=YES
+    export ACCEPT_EULA=Y
+    export OMP_NUM_THREADS=1
+    export PYTHONUNBUFFERED=1
+
+%test
+    /opt/bfm/.venv/bin/python - <<'PY'
+import importlib.util
+import importlib.metadata
+import torch, numpy, wandb, pydantic, mujoco
+for package in ('isaacsim', 'isaaclab'):
+    assert importlib.util.find_spec(package), package
+for package in ('torch', 'isaacsim', 'isaaclab', 'wandb'):
+    print(package, importlib.metadata.version(package))
+print('Dependency imports passed. A GPU environment launch is a separate test.')
+PY
+
+%labels
+    org.bfm-zero.isaacsim 4.5.0
+    org.bfm-zero.isaaclab 2.0.2
+    org.bfm-zero.python 3.10

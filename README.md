@@ -32,6 +32,10 @@ Code will be released in stages:
 
 # BFM-Zero Training
 
+For this fork's experiment workflow, start with the [interactive code guide](docs/index.html)
+and [numbered experiment runbook](docs/START_HERE.md). They explain the native
+losses and add a thin cluv/Apptainer launcher without changing the learning algorithm.
+
 Humanoidverse training for BFM-Zero with Isaac Sim or MuJoCo.
 
 ## Requirements

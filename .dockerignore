@@ -1,0 +1,5 @@
+*
+!pyproject.toml
+!uv.lock
+!apptainer/
+!apptainer/bfm-zero.def

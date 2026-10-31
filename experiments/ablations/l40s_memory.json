@@ -1,0 +1,4 @@
+{
+  "buffer_device": "cpu",
+  "agent": {"model": {"inference_batch_size": 16384}}
+}

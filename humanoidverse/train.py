@@ -253,10 +253,11 @@ def make_transition(observation, action, next_observation, reward, terminated, t
 
 
 def init_wandb(cfg: TrainConfig):
-    exp_name = "BFM-Zero"
-    wandb_name = exp_name
+    wandb_name = os.environ.get("WANDB_NAME") or Path(cfg.work_dir).name
     wandb_config = cfg.model_dump()
-    wandb.init(entity=cfg.wandb_ename, project=cfg.wandb_pname, group=cfg.wandb_gname, name=wandb_name, config=wandb_config, dir="./_wandb")
+    wandb_dir = Path(cfg.work_dir) / "_wandb"
+    wandb_dir.mkdir(parents=True, exist_ok=True)
+    wandb.init(entity=cfg.wandb_ename, project=cfg.wandb_pname, group=cfg.wandb_gname, name=wandb_name, config=wandb_config, dir=str(wandb_dir))
 
 
 class Workspace:

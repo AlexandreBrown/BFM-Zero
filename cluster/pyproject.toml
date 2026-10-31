@@ -1,0 +1,54 @@
+# Run cluv from this directory. It syncs the whole Git repository, but runs
+# uv sync only for this tiny Python 3.11 control project, not the Isaac stack.
+[project]
+name = "bfm-zero-cluster"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.cluv]
+project_dir = "$HOME/projects/BFM-Zero/cluster"
+results_path = "$SCRATCH/bfm-zero/output"
+results_symlink = "output"
+job_script_path = "job.sh"
+
+[tool.cluv.env]
+BFM_SIF = "$SCRATCH/bfm-zero/containers/bfm-zero.sif"
+BFM_DATA_DIR = "$SCRATCH/bfm-zero/data"
+BFM_OUTPUT_DIR = "$SCRATCH/bfm-zero/output"
+WANDB_PROJECT = "bfm-zero"
+WANDB_ENTITY = "glen-berseth"
+WANDB_MODE = "offline"
+
+[tool.cluv.sbatch_args]
+time = "02:00:00"
+mem = "128G"
+cpus-per-task = 8
+ntasks = 1
+gres = "gpu:l40s:1"
+
+# Allocation names copied from SceneGMT; verify your allocation is still valid.
+# These are templates, not a claim of GPU/driver compatibility on every cluster.
+[tool.cluv.clusters.mila.sbatch_args]
+gres = "gpu:l40s:1"
+partition = "long"
+
+[tool.cluv.clusters.narval.sbatch_args]
+account = "rrg-gberseth"
+[tool.cluv.clusters.rorqual.sbatch_args]
+account = "rrg-gberseth"
+[tool.cluv.clusters.fir.sbatch_args]
+account = "def-gberseth"
+[tool.cluv.clusters.nibi.sbatch_args]
+account = "def-gberseth"
+[tool.cluv.clusters.trillium.sbatch_args]
+account = "def-gberseth"
+[tool.cluv.clusters.tamia.sbatch_args]
+account = "aip-gberseth"
+[tool.cluv.clusters.killarney.sbatch_args]
+account = "aip-gberseth"
+[tool.cluv.clusters.vulcan.sbatch_args]
+account = "aip-gberseth"
