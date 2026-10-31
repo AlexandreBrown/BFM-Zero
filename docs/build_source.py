@@ -48,7 +48,9 @@ FILES = [
     "cluster/pyproject.toml",
     "cluster/job.sh",
     "cluster/cluv.sh",
+    "cluster/submit.sh",
     "apptainer/bfm-zero.def",
+    "apptainer/wandb-modern.def",
 ]
 
 

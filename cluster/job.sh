@@ -5,7 +5,11 @@
 set -euo pipefail
 umask 077
 
-REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+# Bind the normal checkout directly; do not infer it from the job script path.
+REPO_ROOT=${BFM_CODE_DIR:-$HOME/Documents/bfm/BFM-Zero}
+[[ -f $REPO_ROOT/experiments/train.py ]] || {
+    echo "Missing code checkout: $REPO_ROOT (set BFM_CODE_DIR)." >&2; exit 1;
+}
 if [[ -z ${SLURM_JOB_ID:-} && ${BFM_ALLOW_LOCAL:-0} != 1 ]]; then
     echo "Run inside a Slurm allocation, or set BFM_ALLOW_LOCAL=1 for a workstation." >&2
     exit 1
@@ -43,12 +47,7 @@ if command -v apptainer >/dev/null; then ENGINE=apptainer; else ENGINE=singulari
 JOB_KEY=${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-local}}_${SLURM_ARRAY_TASK_ID:-0}
 JOB_BASE=$(mktemp -d "${SLURM_TMPDIR:-${TMPDIR:-/tmp}}/bfm-${JOB_KEY}.XXXXXX")
 mkdir -p "$JOB_BASE/home" "$JOB_BASE/cache" "$JOB_BASE/mpl" "$BFM_OUTPUT_DIR"
-# Jobs use a snapshot at submission's GIT_COMMIT; later cluv syncs cannot alter it.
-# Skip LFS here: large motion files are separately staged, never downloaded by jobs.
-GIT_LFS_SKIP_SMUDGE=1 git clone --quiet --no-hardlinks --no-checkout "$REPO_ROOT" "$JOB_BASE/source"
-GIT_LFS_SKIP_SMUDGE=1 git -C "$JOB_BASE/source" checkout --quiet --detach "${GIT_COMMIT:-HEAD}"
-
-BINDS=(--bind "$JOB_BASE/source:/workspace/bfm-zero"
+BINDS=(--bind "$REPO_ROOT:/workspace/bfm-zero:ro"
        --bind "$SCRATCH:$SCRATCH"
        --bind "$BFM_DATA_DIR:$BFM_DATA_DIR:ro"
        --bind "$BFM_OUTPUT_DIR:$BFM_OUTPUT_DIR"
@@ -80,7 +79,7 @@ elif [[ $MODE == eval || $MODE == tracking || $MODE == goal || $MODE == reward ]
 elif [[ $MODE == check ]]; then
     ARGS=(--data-dir "$BFM_DATA_DIR" "${ARGS[@]}")
 fi
-echo "Mode=$MODE commit=$(git -C "$JOB_BASE/source" rev-parse HEAD) job=$JOB_KEY"
+echo "Mode=$MODE code=$REPO_ROOT commit=$(git -C "$REPO_ROOT" rev-parse HEAD) job=$JOB_KEY"
 echo "Temporary workspace=$JOB_BASE"
 # Don't exec: after normal exit print the scratch path. Slurm removes SLURM_TMPDIR.
 set +e

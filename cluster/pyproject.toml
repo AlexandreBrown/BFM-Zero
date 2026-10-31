@@ -10,18 +10,20 @@ dependencies = []
 package = false
 
 [tool.cluv]
-project_dir = "$HOME/projects/BFM-Zero/cluster"
+project_dir = "$HOME/Documents/bfm/BFM-Zero/cluster"
 results_path = "$SCRATCH/bfm-zero/output"
 results_symlink = "output"
 job_script_path = "job.sh"
 
 [tool.cluv.env]
-BFM_SIF = "$SCRATCH/bfm-zero/containers/bfm-zero.sif"
+BFM_CODE_DIR = "$HOME/Documents/bfm/BFM-Zero"
+BFM_SIF = "$SCRATCH/bfm-zero/containers/bfm-zero-wandb.sif"
 BFM_DATA_DIR = "$SCRATCH/bfm-zero/data"
 BFM_OUTPUT_DIR = "$SCRATCH/bfm-zero/output"
 WANDB_PROJECT = "bfm-zero"
 WANDB_ENTITY = "glen-berseth"
-WANDB_MODE = "offline"
+WANDB_MODE = "online"
+WANDB_BASE_URL = "https://api.forge.coreweave.com"
 
 [tool.cluv.sbatch_args]
 time = "02:00:00"

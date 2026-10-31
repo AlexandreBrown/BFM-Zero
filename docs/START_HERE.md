@@ -7,15 +7,20 @@ the W&B metric names, and places where the code and paper differ.
 This layer calls the native `default_train_config()` and `Workspace`. The only
 change under `humanoidverse/` is W&B run naming and moving its files under the run
 directory. The networks, optimizers, rewards, environment and learning updates are
-unchanged. No commits or remote submissions were made by this setup.
+unchanged. The assistant does not make commits; you review and commit the infrastructure changes.
+
+Current cluster defaults use the modern W&B image and online logging; see
+[modern-key authentication](../apptainer/wandb-modern.md). The numbered ladder
+below still recommends a smoke check before scientific comparisons.
 
 Your project: [glen-berseth/bfm-zero](https://forge.coreweave.com/wandb/glen-berseth/bfm-zero).
 The team/project are configured in `cluster/pyproject.toml`. Credentials are not.
-The Forge project URL is a web UI URL; we have not inferred an API endpoint from
-it. The locked SDK uses its usual W&B endpoint unless you explicitly supply
-`WANDB_BASE_URL`. Validate with a tiny online smoke run before relying on cloud
-logging. If your organization provides a custom API endpoint, set that variable
-on the cluster; `job.sh` passes it through. Do not use a project page as an API base.
+The configured API endpoint is `https://api.forge.coreweave.com`, distinct from
+the project web page. The modern container passed an online write check to this
+project using the external, read-only `.netrc` mount. Use
+[the personal experiment workspace](https://forge.coreweave.com/wandb/glen-berseth/bfm-zero?nw=nwuseralexandrebrown)
+to view runs. The base image SDK rejects new-format API keys; use the modern
+container described above for both training and login.
 
 ## The files you will actually touch
 
@@ -25,8 +30,9 @@ on the cluster; `job.sh` passes it through. Do not use a project page as an API 
 | `experiments/presets/` | Smoke, pilot, native reference recipe |
 | `experiments/ablations/` | Small JSON patches; each changes one stated factor |
 | `cluster/pyproject.toml` | Cluster resources, paths, W&B team/project |
+| `cluster/submit.sh` | Submit held, prepare Slurm logs, then release |
 | `cluster/cluv.sh` | Runs the current `~/Documents/cluv` source checkout |
-| `cluster/job.sh` | One GPU job, immutable source snapshot, container mounts |
+| `cluster/job.sh` | One GPU job, direct code bind, container mounts |
 | `apptainer/` | Frozen dependency image and transfer helpers |
 | `experiments/evaluate.py` | Numerical native tracking evaluation to JSON |
 | `experiments/log_videos.py` | Optional video logging to a separate W&B run |
@@ -57,15 +63,18 @@ Do not move that directory independently of the repository.
 
    ```bash
    test -f bfm-zero.sif || bash apptainer/build.sh
+   test -f bfm-zero-wandb.sif || apptainer build --fakeroot bfm-zero-wandb.sif apptainer/wandb-modern.def
+   sha256sum bfm-zero-wandb.sif > bfm-zero-wandb.sif.sha256
    bash cluster/cluv.sh submit --help
    ```
 
    Review `cluster/pyproject.toml`. Default: Mila, one L40S, 128 GB host RAM,
-   8 CPUs, 2 hours, offline W&B. Account names for Alliance are copied from
+   8 CPUs, 2 hours, online W&B. Long runs override walltime explicitly. Account names for Alliance are copied from
    SceneGMT and need to match your current allocations. Change them in this one
    file or override resource flags on the CLI. A local 7.9 GB SIF was built and
-   passed all 44 CPU tests; see [validation](VALIDATION.md). GPU launch is still
-   unverified. Reserve substantial disk space for rebuilding and see
+   passed all 44 CPU tests; see [validation](VALIDATION.md). The modern derivative
+   also passed those tests, online logging, and a 20-step CUDA physics diagnostic
+   on Mila L40S; full training startup is being validated separately. Reserve substantial disk space for rebuilding and see
    [container notes](../apptainer/README.md).
    `bash cluster/cluv.sh ...` loads `~/Documents/cluv`, not an older installed
    package. Set `BFM_CLUV_SOURCE` if you move that checkout.
@@ -94,8 +103,8 @@ Do not move that directory independently of the repository.
 4. **Prove simulator startup on an L40S, then run a tiny real training job.**
 
    ```bash
-   bash cluster/cluv.sh submit mila --time=00:30:00 -- check --require-gpu --boot-isaac
-   bash cluster/cluv.sh submit mila --time=01:00:00 -- train --preset smoke
+   bash cluster/submit.sh mila --time=00:30:00 -- check --require-gpu --boot-isaac
+   bash cluster/submit.sh mila --time=01:00:00 -- train --preset smoke
    ```
 
    Startup and training are separate checks. First startup can compile shaders
@@ -111,19 +120,19 @@ Do not move that directory independently of the repository.
    With internet on the target node and `wandb login` completed externally:
 
    ```bash
-   bash cluster/cluv.sh submit mila --time=01:00:00 -- train --preset smoke \
+   bash cluster/submit.sh mila --time=01:00:00 -- train --preset smoke \
      --wandb-mode online --group plumbing
    ```
 
-   Confirm metrics reach `glen-berseth/bfm-zero`. The locked W&B SDK is 0.12.21;
-   cloud compatibility is not established by the CPU checks. If authentication
+   Confirm metrics reach `glen-berseth/bfm-zero`. The base lock has W&B 0.12.21;
+   the selected derivative uses 0.27.1 and passed an online write check. If authentication
    fails, check the organization's API endpoint and SDK support before a long run.
    Do not change simulator/learning dependencies to fix a logging problem.
 
    To test resume, replace the path below with the smoke run's **outer directory**:
 
    ```bash
-   bash cluster/cluv.sh submit mila --time=01:00:00 -- train --resume \
+   bash cluster/submit.sh mila --time=01:00:00 -- train --resume \
      --work-dir /scratch/your-user/bfm-zero/output/runs/JOB_0 \
      --set num_env_steps=8192 --group plumbing
    ```
@@ -139,7 +148,7 @@ Do not move that directory independently of the repository.
 6. **Run a full-network pilot on L40S and measure the cost of learning.**
 
    ```bash
-   bash cluster/cluv.sh submit mila --time=04:00:00 -- train --preset pilot \
+   bash cluster/submit.sh mila --time=04:00:00 -- train --preset pilot \
      --seed 4728 --group pilot --wandb-mode offline
    ```
 
@@ -173,7 +182,7 @@ Do not move that directory independently of the repository.
    environment step (e.g. `step-10240000`). Then:
 
    ```bash
-   bash cluster/cluv.sh submit mila --time=02:00:00 -- eval \
+   bash cluster/submit.sh mila --time=02:00:00 -- eval \
      --model-folder /scratch/your-user/bfm-zero/snapshots/step-10240000 \
      --num-envs 32 --seed 0 --episodes-per-motion 1
    ```
@@ -189,13 +198,13 @@ Do not move that directory independently of the repository.
 8. **Make three kinds of prompt visible.**
 
    ```bash
-   bash cluster/cluv.sh submit mila --time=02:00:00 -- tracking \
+   bash cluster/submit.sh mila --time=02:00:00 -- tracking \
      --model-folder /scratch/your-user/bfm-zero/snapshots/step-10240000 \
      --simulator mujoco --motion-list 0 1 25 --save-mp4
-   bash cluster/cluv.sh submit mila --time=02:00:00 -- goal \
+   bash cluster/submit.sh mila --time=02:00:00 -- goal \
      --model-folder /scratch/your-user/bfm-zero/snapshots/step-10240000 \
      --simulator mujoco --save-mp4
-   bash cluster/cluv.sh submit mila --time=04:00:00 -- reward \
+   bash cluster/submit.sh mila --time=04:00:00 -- reward \
      --model-folder /scratch/your-user/bfm-zero/snapshots/step-10240000 \
      --simulator mujoco --num-samples 150000 --n-inferences 1 --save-mp4
    ```
@@ -215,7 +224,7 @@ Do not move that directory independently of the repository.
    Optional upload, after reviewing the generated videos:
 
    ```bash
-   bash cluster/cluv.sh submit mila --time=01:00:00 -- log-videos \
+   bash cluster/submit.sh mila --time=01:00:00 -- log-videos \
      --model-folder /scratch/your-user/bfm-zero/snapshots/step-10240000 \
      --wandb-mode online
    ```
@@ -225,7 +234,7 @@ Do not move that directory independently of the repository.
    Once the pilot works, start a **new** reference run with full CPU replay on L40S:
 
    ```bash
-   bash cluster/cluv.sh submit mila --time=24:00:00 -- train --preset reference \
+   bash cluster/submit.sh mila --time=24:00:00 -- train --preset reference \
      --config experiments/ablations/l40s_memory.json \
      --config experiments/ablations/paper_budget.json \
      --seed 4728 --group reference-l40s
@@ -251,7 +260,7 @@ Do not move that directory independently of the repository.
     a throttled array:
 
     ```bash
-    bash cluster/cluv.sh submit mila --array=4728-4730%1 --time=24:00:00 -- train \
+    bash cluster/submit.sh mila --array=4728-4730%1 --time=24:00:00 -- train \
       --preset reference --config experiments/ablations/l40s_memory.json \
       --config experiments/ablations/paper_budget.json --group reference-seeds
     ```
@@ -264,7 +273,7 @@ Do not move that directory independently of the repository.
     fixed 50M–100M budget for screening; rerun promising observations longer.
 
     ```bash
-    bash cluster/cluv.sh submit mila --time=24:00:00 -- train --preset reference \
+    bash cluster/submit.sh mila --time=24:00:00 -- train --preset reference \
       --config experiments/ablations/l40s_memory.json \
       --config experiments/ablations/no_aux_actor.json \
       --set num_env_steps=51200000 --seed 4728 --group ablation-no-aux
@@ -298,7 +307,8 @@ A run contains `config.json` (training config), `config.yaml` (environment confi
 `launch.json`, timestamped `launches/*.json`, `wandb-run-id.txt`, native CSV logs,
 `_wandb/`, and `checkpoint/`. Provenance records commit/dirty status, software/GPU,
 data and lock hashes, and resolved config. It never dumps environment variables.
-The source snapshot comes from cluv's submitted commit. The image hash is written
+The normal home checkout is bound directly from `BFM_CODE_DIR`; keep it at the
+experiment's version while training runs. The image hash is written
 next to the SIF by `build.sh`; archive it with your result notes.
 
 W&B logs metrics/config; it does not automatically back up checkpoints or replay.
