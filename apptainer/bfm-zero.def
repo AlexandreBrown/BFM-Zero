@@ -10,7 +10,7 @@ From: nvidia/cuda:12.4.1-runtime-ubuntu22.04
     set -eu
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y --no-install-recommends python3.10 python3.10-venv python3-pip \
+    apt-get install -y --no-install-recommends python3.10 python3.10-venv python3.10-dev python3-pip \
         git ca-certificates build-essential ffmpeg libgl1 libegl1 libglib2.0-0 \
         libsm6 libxext6 libxrender1 libgomp1 libvulkan1 libxkbcommon0 libxi6 \
         libxrandr2 libxcursor1 libxinerama1 libxt6 libglu1-mesa libnss3 libasound2

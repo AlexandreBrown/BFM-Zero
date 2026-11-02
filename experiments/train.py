@@ -163,6 +163,10 @@ def run(args, cfg):
     check_data(cfg.env.lafan_tail_path)
     if not torch.cuda.is_available():
         raise RuntimeError("Isaac training requires a working NVIDIA GPU/driver. Use --print-config for CPU-only validation.")
+    # Replay indexing also uses torch.compile, independently of agent.compile.
+    # Fail before expensive environment setup/evaluation if compilation is broken.
+    from experiments.preflight import check_compile_toolchain
+    check_compile_toolchain()
     work = Path(cfg.work_dir)
     work.mkdir(parents=True, exist_ok=True)
     # A file lock also prevents two Slurm jobs sharing a resume directory.
@@ -207,12 +211,16 @@ def run(args, cfg):
         if not args.resume:
             (work / "launch.json").write_text(serialized)
         print(f"Run: {work}\nW&B mode: {args.wandb_mode}", flush=True)
+        exit_code = 0
         try:
             cfg.build().train()
+        except BaseException:
+            exit_code = 1
+            raise
         finally:
             if cfg.use_wandb:
                 import wandb
-                wandb.finish()
+                wandb.finish(exit_code=exit_code)
 
 
 def main(argv=None):
@@ -226,5 +234,18 @@ def main(argv=None):
         run(args, cfg)
 
 
+def cli():
+    try:
+        main()
+    except Exception:
+        # Isaac shutdown hooks can replace an unhandled Python failure with
+        # exit code 0. Report the exception and preserve failure for Slurm.
+        import traceback
+        traceback.print_exc()
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(1)
+
+
 if __name__ == "__main__":
-    main()
+    cli()

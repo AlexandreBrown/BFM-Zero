@@ -2,7 +2,10 @@
 import contextlib
 import io
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -82,6 +85,45 @@ class ExperimentTests(unittest.TestCase):
                 train.init_wandb(cfg)
             self.assertEqual(init.call_args.kwargs["dir"], str(Path(folder) / "_wandb"))
             self.assertEqual(init.call_args.kwargs["name"], "smoke-test")
+
+    def test_training_failure_is_reported_to_wandb_and_reraised(self):
+        import torch
+        import wandb
+        for failure in (False, True):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                data = root / "motion.pkl"
+                data.write_bytes(b"test-motion-payload")
+                args = self.args("--work-dir", str(root / "run"), "--data-path", str(data))
+                cfg = launch.resolve_config(args)
+                workspace = SimpleNamespace(train=Mock(side_effect=RuntimeError("compiler failed") if failure else None))
+                with patch.dict(os.environ), \
+                     patch.object(torch.cuda, "is_available", return_value=True), \
+                     patch.object(torch.cuda, "get_device_name", return_value="test-gpu"), \
+                     patch("experiments.preflight.check_compile_toolchain"), \
+                     patch.object(train.TrainConfig, "build", return_value=workspace), \
+                     patch.object(wandb, "finish") as finish, contextlib.redirect_stdout(io.StringIO()):
+                    if failure:
+                        with self.assertRaisesRegex(RuntimeError, "compiler failed"):
+                            launch.run(args, cfg)
+                    else:
+                        launch.run(args, cfg)
+                    finish.assert_called_once_with(exit_code=int(failure))
+
+    def test_cli_failure_preserves_exit_status_despite_simulator_shutdown_hook(self):
+        code = """
+import atexit, os
+from experiments import train
+atexit.register(lambda: os._exit(0))
+def fail():
+    raise RuntimeError('test compilation failure')
+train.main = fail
+train.cli()
+"""
+        result = subprocess.run([sys.executable, "-c", code], cwd=launch.ROOT,
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("test compilation failure", result.stderr)
 
     def test_evaluation_preserves_protocol_and_writes_native_numeric_results(self):
         from experiments.evaluate import main

@@ -13,7 +13,7 @@ Rebuild when dependencies or the lock change. The locked W&B SDK is old
 training job. We have not silently upgraded it or regenerated your modified lock.
 
 For new-format API keys, use the separately built [modern W&B derivative](wandb-modern.md).
-The cluster configuration selects `bfm-zero-wandb.sif`, W&B 0.27.1 and the Forge
+The cluster configuration selects `bfm-zero-wandb-dev.sif`, W&B 0.27.1 and the Forge
 API endpoint. `push.sh` transfers this image and its checksum when present. The
 base image and repository lock retain their original dependency versions.
 

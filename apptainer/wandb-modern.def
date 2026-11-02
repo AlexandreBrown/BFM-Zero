@@ -5,6 +5,10 @@ From: bfm-zero.sif
 # cannot be used by the upstream lock's wandb 0.12.21. Keep ML dependencies fixed.
 %post
     set -eu
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends python3.10-dev
+    rm -rf /var/lib/apt/lists/*
     uv pip install --python /opt/bfm/.venv/bin/python --no-deps \
         wandb==0.27.1 protobuf==4.25.8
     /opt/bfm/.venv/bin/python -c 'import wandb, platformdirs; assert wandb.__version__ == "0.27.1"'
@@ -13,9 +17,20 @@ From: bfm-zero.sif
 %test
     /opt/bfm/.venv/bin/python - <<'PY'
 import torch, wandb, pydantic, mujoco, google.protobuf
+from pathlib import Path
+import sysconfig
 assert wandb.__version__ == '0.27.1'
 assert google.protobuf.__version__ == '4.25.8'
+assert (Path(sysconfig.get_path('include')) / 'Python.h').is_file()
 print('Logging derivative imports passed:', wandb.__version__)
+PY
+    TORCHINDUCTOR_COMPILE_THREADS=1 /opt/bfm/.venv/bin/python - <<'PY'
+import torch
+torch.set_num_threads(1)
+compiled = torch.compile(lambda x: x.sin() + x * 2)
+x = torch.linspace(-1, 1, 16)
+torch.testing.assert_close(compiled(x), x.sin() + x * 2)
+print('torch.compile CPU kernel passed')
 PY
 
 %labels

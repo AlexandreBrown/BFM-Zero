@@ -17,7 +17,7 @@ job_script_path = "job.sh"
 
 [tool.cluv.env]
 BFM_CODE_DIR = "$HOME/Documents/bfm/BFM-Zero"
-BFM_SIF = "$SCRATCH/bfm-zero/containers/bfm-zero-wandb.sif"
+BFM_SIF = "$SCRATCH/bfm-zero/containers/bfm-zero-wandb-dev.sif"
 BFM_DATA_DIR = "$SCRATCH/bfm-zero/data"
 BFM_OUTPUT_DIR = "$SCRATCH/bfm-zero/output"
 WANDB_PROJECT = "bfm-zero"

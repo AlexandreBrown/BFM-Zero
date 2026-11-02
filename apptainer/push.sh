@@ -5,9 +5,11 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 (($#)) || { echo "Usage: bash apptainer/push.sh <ssh-cluster> [<ssh-cluster> ...]" >&2; exit 2; }
 [[ -f bfm-zero.sif ]] || { echo "Build bfm-zero.sif first." >&2; exit 1; }
 IMAGE_FILES=(bfm-zero.sif bfm-zero.sif.sha256)
-if [[ -f bfm-zero-wandb.sif ]]; then
-    IMAGE_FILES+=(bfm-zero-wandb.sif bfm-zero-wandb.sif.sha256)
-fi
+for candidate in bfm-zero-wandb.sif bfm-zero-wandb-dev.sif; do
+    if [[ -f $candidate ]]; then
+        IMAGE_FILES+=("$candidate" "$candidate.sha256")
+    fi
+done
 for image_file in "${IMAGE_FILES[@]}"; do
     [[ $image_file != *.sha256 ]] || sha256sum --check "$image_file"
 done

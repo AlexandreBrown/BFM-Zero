@@ -7,14 +7,16 @@ not only a newer login command. Never truncate a key or store one in this repo.
 Build the logging derivative after building the base image:
 
 ```bash
-apptainer build --fakeroot bfm-zero-wandb.sif apptainer/wandb-modern.def
-sha256sum bfm-zero-wandb.sif > bfm-zero-wandb.sif.sha256
+apptainer build --fakeroot bfm-zero-wandb-dev.sif apptainer/wandb-modern.def
+sha256sum bfm-zero-wandb-dev.sif > bfm-zero-wandb-dev.sif.sha256
 ```
 
-This changes only W&B (0.27.1) and protobuf (4.25.8) in the image. The base
-image, repository lock, simulator, PyTorch, training source, and algorithm are
-unchanged. All 44 CPU regression tests passed in this derivative. GPU startup
-must also be checked after deploying it.
+This updates W&B (0.27.1) and protobuf (4.25.8), and installs `python3.10-dev`
+for PyTorch's runtime C++ compilation. The build test actually compiles and runs
+a small kernel; dependency imports alone would not catch missing `Python.h`.
+The base image, repository lock, simulator, PyTorch, and learning implementation
+are unchanged. All 46 CPU regression tests passed in this derivative. GPU
+compilation and actual training updates must also be checked after deployment.
 
 On Mila, authenticate interactively outside the checkout:
 
@@ -26,7 +28,7 @@ UV_CACHE_DIR="$SCRATCH/bfm-zero/uv-cache" \
 ```
 
 Paste the key only at the prompt. Credentials live in the external `~/.netrc`.
-The existing job script mounts that file read-only, outside the source snapshot.
+The existing job script mounts that file read-only, outside the checkout.
 For live logging, select `--wandb-mode online`. The image and public endpoint are
 configured under `[tool.cluv.env]` in `cluster/pyproject.toml`. The current cluv
 forces Slurm's `--export=ALL`, so use its environment configuration rather than

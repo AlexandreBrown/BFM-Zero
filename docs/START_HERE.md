@@ -63,8 +63,8 @@ Do not move that directory independently of the repository.
 
    ```bash
    test -f bfm-zero.sif || bash apptainer/build.sh
-   test -f bfm-zero-wandb.sif || apptainer build --fakeroot bfm-zero-wandb.sif apptainer/wandb-modern.def
-   sha256sum bfm-zero-wandb.sif > bfm-zero-wandb.sif.sha256
+   test -f bfm-zero-wandb-dev.sif || apptainer build --fakeroot bfm-zero-wandb-dev.sif apptainer/wandb-modern.def
+   sha256sum bfm-zero-wandb-dev.sif > bfm-zero-wandb-dev.sif.sha256
    bash cluster/cluv.sh submit --help
    ```
 
@@ -103,7 +103,7 @@ Do not move that directory independently of the repository.
 4. **Prove simulator startup on an L40S, then run a tiny real training job.**
 
    ```bash
-   bash cluster/submit.sh mila --time=00:30:00 -- check --require-gpu --boot-isaac
+   bash cluster/submit.sh mila --time=00:30:00 -- check --require-gpu --check-compile --boot-isaac
    bash cluster/submit.sh mila --time=01:00:00 -- train --preset smoke
    ```
 
