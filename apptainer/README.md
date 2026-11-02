@@ -46,7 +46,9 @@ problem; that changes the simulator version under the experiment.
 
 The job uses a temporary isolated home/cache, the directly mounted checkout,
 motion data and persistent scratch outputs. Keep that checkout at the version
-used for the experiment while it runs. It does not checkpoint on SIGTERM;
+used for the experiment while it runs. Compiler caches and temporary files use
+the mounted job-local disk; the contained `/tmp` is too small for compiling real
+optimizer updates. It does not checkpoint on SIGTERM;
 interruption recovers only the latest **completed** scheduled checkpoint. Replay
 can be tens of GB, and checkpoint publication temporarily keeps both old and new
 versions. Budget disk accordingly. The script leaves job-local cache cleanup to

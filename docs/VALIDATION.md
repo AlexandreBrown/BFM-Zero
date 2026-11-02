@@ -1,4 +1,45 @@
-# Validation on 2026-10-30
+# Validation
+
+## Cluster checks on 2026-11-02
+
+The compiler-header fix is published in `55be14a`. The new
+`bfm-zero-wandb-dev.sif` includes Python development headers and W&B 0.27.1;
+job 11498045 passed real CPU and CUDA compiled forward/backward checks.
+
+Reference job 11498106 then completed its initial evaluation but failed before
+learning: CPU expert replay observations were passed directly into the CUDA
+backward encoder when constructing tracking prompts. Slurm correctly reported
+exit code 1 with the new failure reporting. The earlier run 11462675 had failed
+on missing headers while incorrectly appearing successful. Neither run trained
+a policy or produced a training checkpoint.
+
+The pending patch transfers expert observations to the model device in
+`_sample_tracking_z`. Losses and prompt mathematics are unchanged. A focused
+compiled optimizer test also exposed the contained `/tmp` filling up, so
+`cluster/job.sh` now directs temporary files and Inductor/Triton caches to the
+mounted job-local disk, outside the repository and home quota.
+
+Verification of these pending changes:
+
+- Local suite: 49 tests run, 47 passed and 2 CUDA-only tests skipped.
+- Mila L40S job **11498366**: all 3 device regression tests passed, Slurm exit
+  code 0, elapsed 2 minutes 30 seconds. This used the published source with the
+  candidate prompt helper loaded from a diagnostic file on scratch; it did not
+  modify the remote checkout. The learning test used small networks and synthetic
+  CPU replay, ran two compiled native FB/critic/discriminator/auxiliary/actor
+  updates, checked finite metrics and verified actor weights changed. The prompt
+  test used a real CUDA encoder and normalizer and checked CPU replay stayed on
+  CPU. Compiler files used job-local disk.
+- Shell and guide JavaScript syntax, source-browser regeneration and
+  `git diff --check` passed.
+
+These tests establish device and compiler readiness. A full simulation training
+run, full-size update VRAM fit, throughput, convergence and policy videos remain
+to be verified after the pending patch is reviewed, committed and pushed by the
+user. The next launch keeps the 192M-step target and 2-day walltime, with more
+frequent metric logging to confirm the first real learning updates promptly.
+
+## Initial local checks on 2026-10-30
 
 The local setup is implemented and left uncommitted. No cluster job was submitted,
 no Git push was made, and no new policy or policy video was produced.

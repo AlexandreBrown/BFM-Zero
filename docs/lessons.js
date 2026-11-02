@@ -89,9 +89,10 @@ return self._storage[idx].clone().to(device if device is not None else self.devi
             '<p>If the selected percentage gives zero environments, return an empty tensor with the expected shape. This avoids trying to sample a nonexistent motion batch.</p>'),
           block('2. Request whole sequences, then encode each frame',
 `batch = replay_buffer["expert_slicer"].sample(batch_dim * traj_length, seq_length=traj_length)
-z = self._model.backward_map(batch["next"]["observation"])
+next_obs = tree_map(lambda x: x.to(self._model.device), batch["next"]["observation"])
+z = self._model.backward_map(next_obs)
 z = z.view(batch_dim, traj_length, z.shape[-1])`,
-            '<p>For 512 selected environments and 250 steps, request 128,000 frames arranged as 512 contiguous expert sequences. B maps each successor state to a 256-number feature vector. <code>view</code> restores the sequence layout: <code>[512, 250, 256]</code>.</p><p><code>next</code> expresses the state the actor should try to reach next. The helper’s explicit <code>seq_length=250</code> controls this sample length; it is distinct from the model’s default 8-frame averaging window.</p>'),
+            '<p>For 512 selected environments and 250 steps, request 128,000 frames arranged as 512 contiguous expert sequences. Replay can live on CPU; <code>tree_map</code> moves each observation tensor to the encoder’s device before B runs. This changes where the data lives, not the prompt calculation. B maps each successor state to a 256-number feature vector. <code>view</code> restores the sequence layout: <code>[512, 250, 256]</code>.</p><p><code>next</code> expresses the state the actor should try to reach next. The helper’s explicit <code>seq_length=250</code> controls this sample length; it is distinct from the model’s default 8-frame averaging window.</p>'),
           block('3. Use a short window of future frames',
 `for step in range(traj_length):
     end_idx = min(step + self.cfg.model.seq_length, traj_length)

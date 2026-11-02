@@ -46,7 +46,8 @@ if command -v apptainer >/dev/null; then ENGINE=apptainer; else ENGINE=singulari
 
 JOB_KEY=${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-local}}_${SLURM_ARRAY_TASK_ID:-0}
 JOB_BASE=$(mktemp -d "${SLURM_TMPDIR:-${TMPDIR:-/tmp}}/bfm-${JOB_KEY}.XXXXXX")
-mkdir -p "$JOB_BASE/home" "$JOB_BASE/cache" "$JOB_BASE/mpl" "$BFM_OUTPUT_DIR"
+mkdir -p "$JOB_BASE/home" "$JOB_BASE/cache/tmp" "$JOB_BASE/cache/torchinductor" \
+         "$JOB_BASE/cache/triton" "$JOB_BASE/mpl" "$BFM_OUTPUT_DIR"
 BINDS=(--bind "$REPO_ROOT:/workspace/bfm-zero:ro"
        --bind "$SCRATCH:$SCRATCH"
        --bind "$BFM_DATA_DIR:$BFM_DATA_DIR:ro"
@@ -67,6 +68,16 @@ for key in WANDB_API_KEY WANDB_ENTITY WANDB_PROJECT WANDB_MODE WANDB_NAME WANDB_
 done
 export APPTAINERENV_MUJOCO_GL=egl SINGULARITYENV_MUJOCO_GL=egl
 export APPTAINERENV_OMP_NUM_THREADS=1 SINGULARITYENV_OMP_NUM_THREADS=1
+# --contain gives /tmp a small session filesystem. Real optimizer compilation
+# outgrows it, so use the job-local disk already mounted at /home/bfm/.cache.
+for key in TMPDIR TORCHINDUCTOR_CACHE_DIR TRITON_CACHE_DIR; do
+    case "$key" in
+        TMPDIR) value=/home/bfm/.cache/tmp ;;
+        TORCHINDUCTOR_CACHE_DIR) value=/home/bfm/.cache/torchinductor ;;
+        TRITON_CACHE_DIR) value=/home/bfm/.cache/triton ;;
+    esac
+    export "APPTAINERENV_${key}=$value" "SINGULARITYENV_${key}=$value"
+done
 
 ARGS=("$@")
 if [[ $MODE == train ]]; then

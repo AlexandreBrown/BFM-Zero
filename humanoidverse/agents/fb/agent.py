@@ -348,7 +348,9 @@ class FBAgent:
         if batch_dim == 0:
             return torch.empty((0, traj_length, self.cfg.model.archi.z_dim), device=self._model.device)
         batch = replay_buffer["expert_slicer"].sample(batch_dim * traj_length, seq_length=traj_length)  # N*T x obs_dim
-        z = self._model.backward_map(batch["next"]["observation"])  # NT x z_dim
+        # Replay may live on CPU while the encoder/normalizer live on CUDA.
+        next_obs = tree_map(lambda x: x.to(self._model.device), batch["next"]["observation"])
+        z = self._model.backward_map(next_obs)  # NT x z_dim
         z = z.view(batch_dim, traj_length, z.shape[-1])  # N x T x z_dim
         for step in range(traj_length):
             end_idx = min(step + self.cfg.model.seq_length, traj_length)
