@@ -24,11 +24,29 @@ else:
     HUMANOIDVERSE_DIR = Path(__file__).parent.parent.parent
 
 
-def main(model_folder: Path, data_path: Path | None = None, headless: bool = True, device="cuda", simulator: str = "isaacsim", save_mp4: bool=False, disable_dr: bool = False, disable_obs_noise: bool = False, episode_len: int = 500, video_folder: str | None = None):
+def main(
+    model_folder: Path,
+    data_path: Path | None = None,
+    headless: bool = True,
+    device="cuda",
+    simulator: str = "isaacsim",
+    save_mp4: bool = False,
+    disable_dr: bool = False,
+    disable_obs_noise: bool = False,
+    episode_len: int = 500,
+    video_folder: str | None = None,
+    seed: int | None = None,
+    render_size: int = 256,
+    reset_to_default_pose: bool = False,
+):
 
     model_folder = Path(model_folder)
     video_folder = Path(video_folder) if video_folder is not None else model_folder / "goal_inference" / "videos"
     video_folder.mkdir(parents=True, exist_ok=True)
+
+    if seed is not None:
+        from humanoidverse.agents.utils import set_seed_everywhere
+        set_seed_everywhere(seed)
 
     model = load_model_from_checkpoint_dir(model_folder / "checkpoint", device=device)
     model.to(device)
@@ -54,6 +72,7 @@ def main(model_folder: Path, data_path: Path | None = None, headless: bool = Tru
     config["env"]["hydra_overrides"].append(f"simulator={simulator}")
     config["env"]["disable_domain_randomization"] = disable_dr
     config["env"]["disable_obs_noise"] = disable_obs_noise
+    config["env"]["device"] = device
 
     output_dir = model_folder / "exported"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -117,12 +136,13 @@ def main(model_folder: Path, data_path: Path | None = None, headless: bool = Tru
         joblib.dump(z_dict, f)
 
     if save_mp4:
-        rgb_renderer = IsaacRendererWithMuJoco(render_size=256)
+        rgb_renderer = IsaacRendererWithMuJoco(render_size=render_size)
 
-    observation, info = wrapped_env.reset(to_numpy=False)
-    observation, info = wrapped_env.reset(to_numpy=False)
-    observation, info = wrapped_env.reset(to_numpy=False)
-    observation, info = wrapped_env.reset(to_numpy=False)
+    # Retain the original reset sequence; optionally make its final start reproducible.
+    for _ in range(4):
+        observation, info = wrapped_env.reset(to_numpy=False, reset_to_default_pose=reset_to_default_pose)
+    if seed is not None:
+        observation, info = wrapped_env.reset(to_numpy=False, seed=seed, reset_to_default_pose=reset_to_default_pose)
 
     frames = []
     counter = 0
@@ -130,6 +150,27 @@ def main(model_folder: Path, data_path: Path | None = None, headless: bool = Tru
     _pbar = tqdm(desc="steps", disable=False, leave=False, total=episode_len)
     goal_idx = -1
     goal_names = list(z_dict.keys())
+    if not goal_names:
+        raise ValueError("No valid goal frames were found in the selected dataset.")
+    status_path = model_folder / "checkpoint" / "train_status.json"
+    metadata = {
+        "model_folder": str(model_folder.resolve()),
+        "training_steps": json.loads(status_path.read_text()).get("time") if status_path.exists() else None,
+        "data_path": config["env"]["lafan_tail_path"],
+        "goal_json": goal_json,
+        "goal_names": goal_names,
+        "steps_per_goal": 100,
+        "episode_len": episode_len,
+        "control_dt": float(env.dt),
+        "video_fps": 1 / float(env.dt),
+        "seed": seed,
+        "reset_to_default_pose": reset_to_default_pose,
+        "disable_dr": disable_dr,
+        "disable_obs_noise": disable_obs_noise,
+        "render_size": render_size,
+        "simulator": simulator,
+    }
+    (video_folder / "rollout.json").write_text(json.dumps(metadata, indent=2) + "\n")
 
     while counter < episode_len:
         if counter % 100 == 0:
@@ -146,7 +187,7 @@ def main(model_folder: Path, data_path: Path | None = None, headless: bool = Tru
         _pbar.update(1)
     _pbar.close()
     if save_mp4:
-        media.write_video(video_folder / "goal.mp4", frames, fps=50)
+        media.write_video(video_folder / "goal.mp4", frames, fps=1 / float(env.dt))
         print("Saved video for goal")
 
 if __name__ == "__main__":
